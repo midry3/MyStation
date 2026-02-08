@@ -109,7 +109,7 @@ def start_station():
     p = play_bgm()
     try:
         subprocess.run(
-            ["mpv", STATION_FILE],
+            ["ffplay", "-nodisp", STATION_FILE],
             shell=True
         )
     finally:
