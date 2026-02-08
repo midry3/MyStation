@@ -4,8 +4,22 @@ import os
 import sys
 import argparse
 import datetime
+import json
+import random
+import subprocess
 import time
-from playsound import playsound, PlaysoundException
+from threading import Thread
+
+from pydub import AudioSegment
+
+WORDS = "abcdefghijklmnopqrstuvwxyz"
+
+ALARM_FILE = "audio/alarm.mp3"
+BGM_FILE = "bgm.txt"
+PASS_LENGTH = 5
+SCRIPT_FILE = "script.json"
+VOICE_DIR = "reading"
+STATION_FILE = "stream.wav"
 
 AREA_CODE = "070000"
 FOREST_ENDPOINT = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{AREA_CODE}.json"
@@ -13,12 +27,65 @@ FOREST_ENDPOINT = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{AREA_COD
 AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
-def get_today_weather() -> str:
-    data = requests.get(FOREST_ENDPOINT).json()
-    return data[0]["timeSeries"][0]["areas"][2]["weathers"][0]
+def prepare(wait: int, debug=False):
+    time.sleep(wait)
+    subprocess.run(["gemini", "-p", "prompt.mdに従って処理を実行"])
+    with open(SCRIPT_FILE, "r") as f:
+        script = json.load(f)
+    voices = []
+    for n, s in enumerate(script):
+        if 0 < s["speaker"]:
+            path = os.path.join(VOICE_DIR, f"voice_{n+1}.wav")
+            if debug:
+                print(f"`{path}`, {(s["speaker"])}: {(s["text"])}")
+            make_voice(s["text"], s["speaker"], path)
+            voices.append(path)
+    result = AudioSegment.empty()
+    if debug:
+        print("joining...")
+    for i, f in enumerate(voices):
+        audio = AudioSegment.from_file(f)
+        result += audio
+        if i != len(files) - 1:
+            result += AudioSegment.silent(duration=random.randint(400, 700))
+    result.export(STATION_FILE, format="wav")
 
-def voice(text, dest="a.wav"):
-    query_payload = {"text": text, "speaker": 3}
+def get_bgm() -> str:
+    with open(BGM_FILE, "r") as f:
+        bgm = f.read().splitlines()
+    res = random.choice(bgm)
+    while res == "":
+        res = random.choice(bgm)
+    return res
+
+def play_bgm():
+    return subprocess.Popen(
+        ["mpv", "--loop", get_bgm()],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+def make_words() -> str:
+    res = ""
+    for _ in range(PASS_LENGTH):
+        res += random.choice(WORDS)
+    return res
+
+def morning():
+    pass_ = make_words()
+    p = subprocess.Popen(
+        ["mpv", "--loop", ALARM_FILE],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    while True:
+        if pass_ == input(f"{pass_}: ").strip(): break
+    p.terminate()
+
+def make_voice(text: str, speaker: int, dest):
+    query_payload = {"text": text, "speaker": speaker}
     query_response = requests.post(AUDIO_ENDPOINT, params=query_payload)
 
     if query_response.status_code != 200:
@@ -26,7 +93,7 @@ def voice(text, dest="a.wav"):
         return
 
     query = query_response.json()
-    synthesis_payload = {"speaker": 3}
+    synthesis_payload = {"speaker": speaker}
     synthesis_response = requests.post(SYNTHESIS_ENDPOINT, params=synthesis_payload, json=query)
     if synthesis_response.status_code == 200:
         with open(dest, "wb") as f:
@@ -36,9 +103,13 @@ def voice(text, dest="a.wav"):
         print(f"Error in synthesis: {synthesis_response.text}", file=sys.etderr)
 
 def start_station():
-    weather = get_today_weather()
-    print(weather)
-    voice(f"おはようなのだ。今日の天気は{weather}なのだ。")
+    p = play_bgm()
+    try:
+        subprocess.run(
+            ["mpv", STATION_FILE]
+        )
+    finally:
+        p.terminate()
 
 def main():
     parser = argparse.ArgumentParser(description="Set an alarm and get today's weather.")
@@ -55,23 +126,18 @@ def main():
 
     now = datetime.datetime.now()
     alarm_time = now.replace(hour=alarm_hour, minute=alarm_minute, second=0, microsecond=0)
-
     if alarm_time < now:
         alarm_time += datetime.timedelta(days=1)
-
-    time_to_wait = (alarm_time - now).total_seconds()
+    prepare_time = alarm_time - datetime.timedelta(minute=20)
+    time_to_alarm = (alarm_time - now).total_seconds()
+    time_to_prepare = (prepare_time_time - now).total_seconds()
     print(f"Alarm set for {alarm_time.strftime('%H:%M')}. Waiting for {int(time_to_wait)} seconds...")
-    time.sleep(time_to_wait)
+    t = Thread(target=prepare, args=(time_to_prepare,))
+    t.start()
+    time.sleep(time_to_alarm)
 
     print("Alarm ringing!")
-    alarm_file = "alarm.wav"
-    if os.path.exists(alarm_file):
-        try:
-            playsound(alarm_file)
-        except PlaysoundException as e:
-            print(f"Could not play alarm sound: {e}", file=sys.stderr)
-    else:
-        print(f"Alarm file '{alarm_file}' not found. Skipping alarm sound.", file=sys.stderr)
+    morning()
     start_station()
 
 if __name__ == "__main__":
