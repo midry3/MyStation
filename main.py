@@ -29,25 +29,27 @@ SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
 def prepare(wait: int, debug=False):
     time.sleep(wait)
-    subprocess.run(["gemini", "-p", "prompt.mdに従って処理を実行"])
-    with open(SCRIPT_FILE, "r") as f:
+    subprocess.run(["gemini", "-p", "prompt.mdに従って処理を実行", "-y"], shell=True)
+    with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
         script = json.load(f)
     voices = []
     for n, s in enumerate(script):
         if 0 < s["speaker"]:
             path = os.path.join(VOICE_DIR, f"voice_{n+1}.wav")
             if debug:
-                print(f"`{path}`, {(s["speaker"])}: {(s["text"])}")
+                print(f"[{n+1}/{len(script)}] `{path}`, {(s["speaker"])}: {(s["text"])}")
             make_voice(s["text"], s["speaker"], path)
             voices.append(path)
     result = AudioSegment.empty()
     if debug:
         print("joining...")
     for i, f in enumerate(voices):
+        if debug:
+            print(f"[{i+1}/{len(voices)}]")
         audio = AudioSegment.from_file(f)
         result += audio
-        if i != len(files) - 1:
-            result += AudioSegment.silent(duration=random.randint(400, 700))
+        if i != len(voices) - 1:
+            result += AudioSegment.silent(duration=random.randint(300, 700))
     result.export(STATION_FILE, format="wav")
 
 def get_bgm() -> str:
@@ -63,7 +65,8 @@ def play_bgm():
         ["mpv", "--loop", get_bgm()],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        stderr=subprocess.DEVNULL,
+        shell=True
     )
 
 def make_words() -> str:
@@ -78,7 +81,8 @@ def morning():
         ["mpv", "--loop", ALARM_FILE],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        stderr=subprocess.DEVNULL,
+        shell=True
     )
     while True:
         if pass_ == input(f"{pass_}: ").strip(): break
@@ -98,7 +102,6 @@ def make_voice(text: str, speaker: int, dest):
     if synthesis_response.status_code == 200:
         with open(dest, "wb") as f:
             f.write(synthesis_response.content)
-        print(f"音声が {os.path.abspath(dest)} に保存されました。")
     else:
         print(f"Error in synthesis: {synthesis_response.text}", file=sys.etderr)
 
@@ -106,7 +109,8 @@ def start_station():
     p = play_bgm()
     try:
         subprocess.run(
-            ["mpv", STATION_FILE]
+            ["mpv", STATION_FILE],
+            shell=True
         )
     finally:
         p.terminate()

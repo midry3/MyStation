@@ -2,4 +2,8 @@
 script.json
 urls.json
 bgm.txt
+*.wav
 audio/
+reading/
+venv/
+__pycache__/
