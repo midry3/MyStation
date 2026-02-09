@@ -10,7 +10,4 @@ reading/
 venv/
 __pycache__/
 VOICEVOX/
-<<<<<<< HEAD
-=======
 log/
->>>>>>> dev
