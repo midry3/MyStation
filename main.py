@@ -7,9 +7,11 @@ import datetime
 import json
 import random
 import subprocess
+import tarfile
 import time
 from threading import Thread
 
+from alive_progress import alive_bar
 from pydub import AudioSegment
 
 WORDS = "abcdefghijklmnopqrstuvwxyz"
@@ -22,14 +24,59 @@ VOICE_DIR = "reading"
 STATION_FILE = "stream.wav"
 
 AREA_CODE = "070000"
+
+VOICEVOX_TAR = "voicevox.tar.gz"
+VOICEVOX_RUN = "VOICEVOX/vv-engine/run"
+VOICEVOX_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-linux-cpu-x64-0.25.1.tar.gz"
+
 FOREST_ENDPOINT = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{AREA_CODE}.json"
 
 AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
+def download_with_progress(url: str, dst_path: str, chunk_size: int = 1024 * 64):
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+
+        total = r.headers.get("Content-Length")
+        total = int(total) if total is not None else None
+
+        with open(dst_path, "wb") as f:
+            if total is not None:
+                with alive_bar(
+                    total
+                ) as bar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        bar(len(chunk))
+            else:
+                with alive_bar(
+                    unknown="bytes"
+                ) as bar:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        bar(len(chunk))
+
+def ready_voicevox():
+    if not os.path.isfile(VOICEVOX_RUN):
+        install_voicevox()
+    return subprocess.Popen([VOICEVOX_RUN])
+
+def install_voicevox():
+    print("download voicevox ...")
+    download_with_progress(VOICEVOX_URL, VOICEVOX_TAR)
+    print("\nextracting ...")
+    with tarfile.open(VOICEVOX_TAR, "r:gz") as tar:
+        tar.extractall(".")
+    print("\033[33mdone\033[0m.")
+
 def prepare(wait: int, debug=False):
     time.sleep(wait)
-    subprocess.run(["gemini", "-p", "prompt.mdに従って処理を実行", "-y"], shell=True)
+    subprocess.run(["gemini", "-y", "-p", "prompt.mdに従って処理を実行"], shell=True)
     with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
         script = json.load(f)
     voices = []
@@ -116,6 +163,8 @@ def start_station():
         p.terminate()
 
 def main():
+    if not os.path.isfile(VOICEVOX_RUN):
+        install_voicevox()
     parser = argparse.ArgumentParser(description="Set an alarm and get today's weather.")
     parser.add_argument("hour", type=int, help="Hour for the alarm (0-23)")
     parser.add_argument("minute", type=int, help="Minute for the alarm (0-59)")

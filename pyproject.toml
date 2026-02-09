@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "alive-progress>=3.3.0",
     "audioop-lts>=0.2.2",
     "pydub>=0.25.1",
     "requests>=2.32.5",

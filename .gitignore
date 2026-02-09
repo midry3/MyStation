@@ -1,7 +1,6 @@
-.env
-script.json
-urls.json
-bgm.txt
+*.json
+*.txt
+*.tar.gz
 *.wav
 audio/
 reading/
