@@ -10,3 +10,4 @@ reading/
 venv/
 __pycache__/
 VOICEVOX/
+log/
