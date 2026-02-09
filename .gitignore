@@ -1,8 +1,12 @@
-*.json
+script.json
+urls.json
 *.txt
 *.tar.gz
+*.zip
+*.log
 *.wav
 audio/
 reading/
 venv/
 __pycache__/
+VOICEVOX/

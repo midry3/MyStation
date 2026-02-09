@@ -5,16 +5,110 @@ import sys
 import argparse
 import datetime
 import json
+import platform
 import random
 import subprocess
 import tarfile
 import time
+import zipfile
 from threading import Thread
 
 from alive_progress import alive_bar
 from pydub import AudioSegment
 
+BARS = [
+    "classic",
+    "stars",
+    "twirl",
+    "twirls",
+    "horizontal",
+    "vertical",
+    "waves",
+    "waves2",
+    "waves3",
+    "dots",
+    "dots_waves",
+    "dots_waves2",
+    "it",
+    "ball_belt",
+    "balls_belt",
+    "triangles",
+    "brackets",
+    "bubbles",
+    "circles",
+    "squares",
+    "flowers",
+    "elements",
+    "loving",
+    "notes",
+    "notes2",
+    "arrow",
+    "arrows",
+    "arrows2",
+    "arrows_in",
+    "arrows_out",
+    "radioactive",
+    "boat",
+    "fish",
+    "fish2",
+    "fishes",
+    "crab",
+    "alive",
+    "wait",
+    "wait2",
+    "wait3",
+    "wait4",
+    "pulse"
+]
+
+SPINNERS = [
+    "classic",
+    "stars",
+    "twirl",
+    "twirls",
+    "horizontal",
+    "vertical",
+    "waves",
+    "waves2",
+    "waves3",
+    "dots",
+    "dots_waves",
+    "dots_waves2",
+    "it",
+    "ball_belt",
+    "balls_belt",
+    "triangles",
+    "brackets",
+    "bubbles",
+    "circles",
+    "squares",
+    "flowers",
+    "elements",
+    "loving",
+    "notes",
+    "notes2",
+    "arrow",
+    "arrows",
+    "arrows2",
+    "arrows_in",
+    "arrows_out",
+    "radioactive",
+    "boat",
+    "fish",
+    "fish2",
+    "fishes",
+    "crab",
+    "alive",
+    "wait",
+    "wait2",
+    "wait3",
+    "wait4",
+    "pulse"
+]
+
+BGM_VOLUME = "15"
 WORDS = "abcdefghijklmnopqrstuvwxyz"
+WAIT_FOR_BGM = 15
 
 ALARM_FILE = "audio/alarm.mp3"
 BGM_FILE = "bgm.txt"
@@ -26,13 +120,46 @@ STATION_FILE = "stream.wav"
 AREA_CODE = "070000"
 
 VOICEVOX_TAR = "voicevox.tar.gz"
+VOICEVOX_ZIP = "voicevox.zip"
 VOICEVOX_RUN = "VOICEVOX/vv-engine/run"
-VOICEVOX_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-linux-cpu-x64-0.25.1.tar.gz"
+VOICEVOX_WINDOWS_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-windows-directml-0.25.1.zip"
+VOICEVOX_LINUX_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-linux-cpu-x64-0.25.1.tar.gz"
 
 FOREST_ENDPOINT = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{AREA_CODE}.json"
 
 AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
+
+GEMINI_LOG_FILE = "gemini.log"
+VOICEVOX_LOG_FILE = "voicevox.log"
+
+is_windows = platform.system() == "Windows"
+
+if is_windows:
+    VOICEVOX_RUN += ".exe"
+
+class BGM:
+    def __init__(self, url: str):
+        self.ytdlp = subprocess.Popen(
+            ["yt-dlp", "-qx", "-o", "-", get_bgm()],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        self.ffplay = subprocess.Popen(
+            ["ffplay", "-nodisp", "-vn", "-loop", "0", "-volume", BGM_VOLUME, "-loglevel", "quiet", "-i", "-"],
+            stdin=self.ytdlp.stdout,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        self.ytdlp.stdout.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _, __, ___):
+        self.ffplay.terminate()
+        self.ytdlp.terminate()
 
 def download_with_progress(url: str, dst_path: str, chunk_size: int = 1024 * 64):
     with requests.get(url, stream=True) as r:
@@ -44,7 +171,9 @@ def download_with_progress(url: str, dst_path: str, chunk_size: int = 1024 * 64)
         with open(dst_path, "wb") as f:
             if total is not None:
                 with alive_bar(
-                    total
+                    total,
+                    bar=random.choice(BARS),
+                    spinner=random.choice(SPINNERS)
                 ) as bar:
                     for chunk in r.iter_content(chunk_size=chunk_size):
                         if not chunk:
@@ -53,7 +182,9 @@ def download_with_progress(url: str, dst_path: str, chunk_size: int = 1024 * 64)
                         bar(len(chunk))
             else:
                 with alive_bar(
-                    unknown="bytes"
+                    unknown="bytes",
+                    bar=random.choice(BARS),
+                    spinner=random.choice(SPINNERS)
                 ) as bar:
                     for chunk in r.iter_content(chunk_size=chunk_size):
                         if not chunk:
@@ -61,45 +192,76 @@ def download_with_progress(url: str, dst_path: str, chunk_size: int = 1024 * 64)
                         f.write(chunk)
                         bar(len(chunk))
 
-def ready_voicevox():
+def ready_voicevox(log):
     if not os.path.isfile(VOICEVOX_RUN):
         install_voicevox()
-    return subprocess.Popen([VOICEVOX_RUN])
+    return subprocess.Popen(
+        [VOICEVOX_RUN],
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=log,
+        text=True
+    )
 
 def install_voicevox():
-    print("download voicevox ...")
-    download_with_progress(VOICEVOX_URL, VOICEVOX_TAR)
-    print("\nextracting ...")
-    with tarfile.open(VOICEVOX_TAR, "r:gz") as tar:
-        tar.extractall(".")
+    print("downloading voicevox ...")
+    if is_windows:
+        download_with_progress(VOICEVOX_WINDOWS_URL, VOICEVOX_ZIP)
+        print("\nextracting ...")
+        with zipfile.ZipFile(VOICEVOX_ZIP, "r") as z:
+            z.extractall(".")
+    else:
+        download_with_progress(VOICEVOX_LINUX_URL, VOICEVOX_TAR)
+        print("\nextracting ...")
+        with tarfile.open(VOICEVOX_TAR, "r:gz") as tar:
+            tar.extractall(".")
     print("\033[33mdone\033[0m.")
 
 def prepare(wait: int, debug=False):
     time.sleep(wait)
-    subprocess.run(["gemini", "-y", "-p", "prompt.mdに従って処理を実行"])
-    with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
-        script = json.load(f)
-    if not os.path.isdir(VOICE_DIR):
-        os.mkdir(VOICE_DIR)
-    voices = []
-    for n, s in enumerate(script):
-        if 0 < s["speaker"]:
-            path = os.path.join(VOICE_DIR, f"voice_{n+1}.wav")
+    now = datetime.datetime.now()
+    with open(VOICEVOX_LOG_FILE, "a") as fv:
+        fv.write(f"________{now}________\n")
+        p = ready_voicevox(fv)
+        print("start voicevox.")
+        try:
+            with open(GEMINI_LOG_FILE, "a") as fg:
+                fg.write(f"________{now}________\n")
+                subprocess.run(
+                    ["npx", "@google/gemini-cli", "-y", "-p", "prompt.mdに従って処理を実行"],
+                    stdout=fg,
+                    stderr=fg,
+                    text=True,
+                    shell=is_windows
+                )
+                f.write("\n")
+            with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
+                script = json.load(f)
+            if not os.path.isdir(VOICE_DIR):
+                os.mkdir(VOICE_DIR)
+            voices = []
+            for n, s in enumerate(script):
+                if 0 < s["speaker"]:
+                    path = os.path.join(VOICE_DIR, f"voice_{n+1}.wav")
+                    if debug:
+                        print(f"[{n+1}/{len(script)}] `{path}`, {(s["speaker"])}: {(s["text"])}")
+                    make_voice(s["text"], s["speaker"], path)
+                    voices.append(path)
+            result = AudioSegment.empty()
             if debug:
-                print(f"[{n+1}/{len(script)}] `{path}`, {(s["speaker"])}: {(s["text"])}")
-            make_voice(s["text"], s["speaker"], path)
-            voices.append(path)
-    result = AudioSegment.empty()
-    if debug:
-        print("joining...")
-    for i, f in enumerate(voices):
-        if debug:
-            print(f"[{i+1}/{len(voices)}]")
-        audio = AudioSegment.from_file(f)
-        result += audio
-        if i != len(voices) - 1:
-            result += AudioSegment.silent(duration=random.randint(300, 700))
-    result.export(STATION_FILE, format="wav")
+                print("joining...")
+            for i, f in enumerate(voices):
+                if debug:
+                    print(f"[{i+1}/{len(voices)}]")
+                audio = AudioSegment.from_file(f)
+                result += audio
+                if i != len(voices) - 1:
+                    result += AudioSegment.silent(duration=random.randint(300, 700))
+            result.export(STATION_FILE, format="wav")
+        finally:
+            p.terminate()
+            fv.write("\n")
+            print("made a new program.")
 
 def get_bgm() -> str:
     with open(BGM_FILE, "r") as f:
@@ -108,15 +270,6 @@ def get_bgm() -> str:
     while res == "":
         res = random.choice(bgm)
     return res
-
-def play_bgm():
-    return subprocess.Popen(
-        ["mpv", "--loop", get_bgm()],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        shell=True
-    )
 
 def make_words() -> str:
     res = ""
@@ -127,11 +280,10 @@ def make_words() -> str:
 def morning():
     pass_ = make_words()
     p = subprocess.Popen(
-        ["mpv", "--loop", ALARM_FILE],
+        ["ffplay", "-nodisp", "-vn", "-loop", "0", "-i", ALARM_FILE],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        shell=True
+        stderr=subprocess.DEVNULL
     )
     while True:
         if pass_ == input(f"{pass_}: ").strip(): break
@@ -155,19 +307,17 @@ def make_voice(text: str, speaker: int, dest):
         print(f"Error in synthesis: {synthesis_response.text}", file=sys.etderr)
 
 def start_station():
-    p = play_bgm()
-    try:
+    print("______start program!______")
+    with BGM(get_bgm()):
+        time.sleep(WAIT_FOR_BGM)
         subprocess.run(
-            ["ffplay", "-nodisp", STATION_FILE],
-            shell=True
+            ["ffplay", "-nodisp", "-vn", "-autoexit", "-loglevel", "info", "-i", STATION_FILE]
         )
-    finally:
-        p.terminate()
 
 def main():
     if not os.path.isfile(VOICEVOX_RUN):
         install_voicevox()
-    parser = argparse.ArgumentParser(description="Set an alarm and get today's weather.")
+    parser = argparse.ArgumentParser(description="Set an alarm and start radio.")
     parser.add_argument("hour", type=int, help="Hour for the alarm (0-23)")
     parser.add_argument("minute", type=int, help="Minute for the alarm (0-59)")
     args = parser.parse_args()
@@ -183,11 +333,11 @@ def main():
     alarm_time = now.replace(hour=alarm_hour, minute=alarm_minute, second=0, microsecond=0)
     if alarm_time < now:
         alarm_time += datetime.timedelta(days=1)
-    prepare_time = alarm_time - datetime.timedelta(minute=20)
+    prepare_time = alarm_time - datetime.timedelta(minutes=20)
     time_to_alarm = (alarm_time - now).total_seconds()
-    time_to_prepare = (prepare_time_time - now).total_seconds()
-    print(f"Alarm set for {alarm_time.strftime('%H:%M')}. Waiting for {int(time_to_wait)} seconds...")
-    t = Thread(target=prepare, args=(time_to_prepare,))
+    time_to_prepare = (prepare_time - now).total_seconds()
+    print(f"Alarm set for {alarm_time.strftime("%H:%M")}.")
+    t = Thread(target=prepare, args=(max(0, time_to_prepare),))
     t.start()
     time.sleep(time_to_alarm)
 
