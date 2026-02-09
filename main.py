@@ -76,9 +76,11 @@ def install_voicevox():
 
 def prepare(wait: int, debug=False):
     time.sleep(wait)
-    subprocess.run(["gemini", "-y", "-p", "prompt.mdに従って処理を実行"], shell=True)
+    subprocess.run(["gemini", "-y", "-p", "prompt.mdに従って処理を実行"])
     with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
         script = json.load(f)
+    if not os.path.isdir(VOICE_DIR):
+        os.mkdir(VOICE_DIR)
     voices = []
     for n, s in enumerate(script):
         if 0 < s["speaker"]:
