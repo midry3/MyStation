@@ -10,3 +10,6 @@ dependencies = [
     "pydub>=0.25.1",
     "requests>=2.32.5",
 ]
+
+[tool.setuptools]
+py-modules = ["main"]

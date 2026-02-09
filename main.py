@@ -1,13 +1,12 @@
 import requests
 
 import os
-import sys
-import argparse
 import datetime
 import json
 import platform
 import random
 import subprocess
+import sys
 import tarfile
 import time
 import zipfile
@@ -17,48 +16,23 @@ from alive_progress import alive_bar
 from pydub import AudioSegment
 
 BARS = [
+    "smooth",
     "classic",
-    "stars",
-    "twirl",
-    "twirls",
-    "horizontal",
-    "vertical",
-    "waves",
-    "waves2",
-    "waves3",
-    "dots",
-    "dots_waves",
-    "dots_waves2",
-    "it",
-    "ball_belt",
-    "balls_belt",
-    "triangles",
+    "classic2",
     "brackets",
+    "blocks",
     "bubbles",
+    "solid",
+    "checks",
     "circles",
     "squares",
-    "flowers",
-    "elements",
-    "loving",
+    "halloween",
+    "filling",
     "notes",
-    "notes2",
-    "arrow",
-    "arrows",
-    "arrows2",
-    "arrows_in",
-    "arrows_out",
-    "radioactive",
-    "boat",
+    "ruler",
+    "ruler2",
     "fish",
-    "fish2",
-    "fishes",
-    "crab",
-    "alive",
-    "wait",
-    "wait2",
-    "wait3",
-    "wait4",
-    "pulse"
+    "scuba"
 ]
 
 SPINNERS = [
@@ -130,8 +104,9 @@ FOREST_ENDPOINT = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{AREA_COD
 AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
-GEMINI_LOG_FILE = "gemini.log"
-VOICEVOX_LOG_FILE = "voicevox.log"
+LOG_DIR = "log"
+GEMINI_LOG_FILE = "log/gemini.log"
+VOICEVOX_LOG_FILE = "log/voicevox.log"
 
 is_windows = platform.system() == "Windows"
 
@@ -164,10 +139,8 @@ class BGM:
 def download_with_progress(url: str, dst_path: str, chunk_size: int = 1024 * 64):
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
-
         total = r.headers.get("Content-Length")
         total = int(total) if total is not None else None
-
         with open(dst_path, "wb") as f:
             if total is not None:
                 with alive_bar(
@@ -222,19 +195,23 @@ def prepare(wait: int, debug=False):
     now = datetime.datetime.now()
     with open(VOICEVOX_LOG_FILE, "a") as fv:
         fv.write(f"________{now}________\n")
+        fv.flush()
         p = ready_voicevox(fv)
         print("start voicevox.")
         try:
             with open(GEMINI_LOG_FILE, "a") as fg:
-                fg.write(f"________{now}________\n")
-                subprocess.run(
-                    ["npx", "@google/gemini-cli", "-y", "-p", "prompt.mdに従って処理を実行"],
-                    stdout=fg,
-                    stderr=fg,
-                    text=True,
-                    shell=is_windows
-                )
-                f.write("\n")
+                try:
+                    fg.write(f"________{now}________\n")
+                    fg.flush()
+                    subprocess.run(
+                        ["npx", "@google/gemini-cli", "-y", "-p", "prompt.mdに従って処理を実行"],
+                        stdout=fg,
+                        stderr=fg,
+                        text=True,
+                        shell=is_windows
+                    )
+                finally:
+                    fg.write("\n________end.________\n\n")
             with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
                 script = json.load(f)
             if not os.path.isdir(VOICE_DIR):
@@ -255,12 +232,14 @@ def prepare(wait: int, debug=False):
                     print(f"[{i+1}/{len(voices)}]")
                 audio = AudioSegment.from_file(f)
                 result += audio
-                if i != len(voices) - 1:
+                if i == len(voices) - 1:
+                    result += AudioSegment.silent(duration=2000)
+                else:
                     result += AudioSegment.silent(duration=random.randint(300, 700))
             result.export(STATION_FILE, format="wav")
         finally:
             p.terminate()
-            fv.write("\n")
+            fv.write("\n________closed.________\n\n")
             print("made a new program.")
 
 def get_bgm() -> str:
@@ -315,35 +294,44 @@ def start_station():
         )
 
 def main():
+    if not os.path.isdir(LOG_DIR):
+        os.mkdir(LOG_DIR)
     if not os.path.isfile(VOICEVOX_RUN):
         install_voicevox()
-    parser = argparse.ArgumentParser(description="Set an alarm and start radio.")
-    parser.add_argument("hour", type=int, help="Hour for the alarm (0-23)")
-    parser.add_argument("minute", type=int, help="Minute for the alarm (0-59)")
-    args = parser.parse_args()
-
-    alarm_hour = args.hour
-    alarm_minute = args.minute
-
-    if not (0 <= alarm_hour <= 23 and 0 <= alarm_minute <= 59):
-        print("Invalid hour or minute. Hour must be 0-23, Minute must be 0-59.", file=sys.stderr)
-        sys.exit(1)
-
-    now = datetime.datetime.now()
-    alarm_time = now.replace(hour=alarm_hour, minute=alarm_minute, second=0, microsecond=0)
-    if alarm_time < now:
-        alarm_time += datetime.timedelta(days=1)
-    prepare_time = alarm_time - datetime.timedelta(minutes=20)
-    time_to_alarm = (alarm_time - now).total_seconds()
-    time_to_prepare = (prepare_time - now).total_seconds()
-    print(f"Alarm set for {alarm_time.strftime("%H:%M")}.")
-    t = Thread(target=prepare, args=(max(0, time_to_prepare),))
-    t.start()
-    time.sleep(time_to_alarm)
-
-    print("Alarm ringing!")
-    morning()
-    start_station()
+    match len(sys.argv):
+        case 1:
+            alarm_hour = -1
+            alarm_minute = 0
+        case 2:
+            alarm_hour = int(sys.argv[1])
+            alarm_minute = 0
+        case 3:
+            alarm_hour = int(sys.argv[1])
+            alarm_minute = int(sys.argv[2])
+        case _:
+            print("too many arguments! (<=2)")
+            sys.exit(1)
+    if alarm_hour == -1:
+        prepare(0)
+        start_station()
+    else:
+        if not (0 <= alarm_hour <= 23 and 0 <= alarm_minute <= 59):
+            print("Invalid hour or minute. Hour must be 0-23, Minute must be 0-59.", file=sys.stderr)
+            sys.exit(1)
+        now = datetime.datetime.now()
+        alarm_time = now.replace(hour=alarm_hour, minute=alarm_minute, second=0, microsecond=0)
+        if alarm_time < now:
+            alarm_time += datetime.timedelta(days=1)
+        prepare_time = alarm_time - datetime.timedelta(minutes=20)
+        time_to_alarm = (alarm_time - now).total_seconds()
+        time_to_prepare = (prepare_time - now).total_seconds()
+        print(f"Alarm set for {alarm_time.strftime("%H:%M")}.")
+        t = Thread(target=prepare, args=(max(0, time_to_prepare),))
+        t.start()
+        time.sleep(time_to_alarm)
+        print("Alarm ringing!")
+        morning()
+        start_station()
 
 if __name__ == "__main__":
     main()
