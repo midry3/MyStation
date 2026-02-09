@@ -91,16 +91,11 @@ SCRIPT_FILE = "script.json"
 VOICE_DIR = "reading"
 STATION_FILE = "stream.wav"
 
-AREA_CODE = "070000"
-
 VOICEVOX_TAR = "voicevox.tar.gz"
 VOICEVOX_ZIP = "voicevox.zip"
 VOICEVOX_RUN = "VOICEVOX/vv-engine/run"
 VOICEVOX_WINDOWS_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-windows-directml-0.25.1.zip"
 VOICEVOX_LINUX_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-linux-cpu-x64-0.25.1.tar.gz"
-
-FOREST_ENDPOINT = f"https://www.jma.go.jp/bosai/forecast/data/forecast/{AREA_CODE}.json"
-
 AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
