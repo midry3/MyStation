@@ -1,9 +1,10 @@
 .env
 script.json
 urls.json
+area.txt
 bgm.txt
 *.wav
 audio/
 reading/
-venv/
+.venv/
 __pycache__/
