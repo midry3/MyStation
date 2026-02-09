@@ -1,10 +1,12 @@
-.env
 script.json
 urls.json
-area.txt
-bgm.txt
+*.txt
+*.tar.gz
+*.zip
+*.log
 *.wav
 audio/
 reading/
-.venv/
+venv/
 __pycache__/
+VOICEVOX/
