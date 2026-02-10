@@ -161,7 +161,7 @@ def prepare(wait: int, debug=False):
         p = ready_voicevox(fv)
         print("start voicevox.")
         try:
-            with open(GEMINI_LOG_FILE, "a") as fg:
+            with open(AI_LOG_FILE, "a") as fg:
                 try:
                     fg.write(f"________{now}________\n")
                     fg.flush()
