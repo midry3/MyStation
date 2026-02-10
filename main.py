@@ -166,7 +166,7 @@ def prepare(wait: int, debug=False):
                     fg.write(f"________{now}________\n")
                     fg.flush()
                     subprocess.run(
-                        ["npx", "@google/gemini-cli", "-y", "-p", "prompt.mdに従って処理を実行"],
+                        AI,
                         stdout=fg,
                         stderr=fg,
                         text=True,

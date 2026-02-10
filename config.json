@@ -1,4 +1,5 @@
 {
+    "ai": "npx @google/gemini-cli -y -p 'prompt.mdに従って処理'",
     "bgm_volume": 15,
     "alarm": "./audio/alarm.mp3",
     "pass_length": 5,

@@ -35,6 +35,8 @@ if os.path.isfile(CONFIG_FILE):
 else:
     conf = {}
 
+AI = shlex.split(conf.get("ai", "npx @google/gemini-cli -y -p 'prompt.mdに従って処理'"))
+
 WORDS = "abcdefghijklmnopqrstuvwxyz"
 BGM_VOLUME = conf.get("bgm_volume", 15)
 WAIT_FOR_BGM = 15
@@ -58,7 +60,7 @@ AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
 LOG_DIR = "./log"
-GEMINI_LOG_FILE = "./log/gemini.log"
+AI_LOG_FILE = "./log/ai.log"
 VOICEVOX_LOG_FILE = "./log/voicevox.log"
 
 is_windows = platform.system().lower() == "windows"
