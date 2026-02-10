@@ -4,6 +4,7 @@ urls.json
 *.7z
 *.log
 *.wav
+.python-version
 audio/
 reading/
 venv/
