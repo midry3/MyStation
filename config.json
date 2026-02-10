@@ -1,0 +1,10 @@
+{
+    "bgm_volume": 15,
+    "alarm": "./audio/alarm.mp3",
+    "pass_length": 5,
+    "bgm_player": "ffplay -nodisp -vn -loop 0 -volume '{volume}' -loglevel quiet -i -",
+    "alarm_player": "ffplay -nodisp -vn -loop 0 -i '{file}'",
+    "radio_player": "ffplay -nodisp -vn -autoexit -loglevel info -i '{file}'",
+    "voicevox_engine": "./VOICEVOX",
+    "voicevox_version": "0.25.1"
+}

@@ -1,15 +1,15 @@
+from settings import *
+
+import py7zr
 import requests
 
 import os
 import datetime
 import json
-import platform
 import random
 import subprocess
 import sys
-import tarfile
 import time
-import zipfile
 from threading import Thread
 
 from alive_progress import alive_bar
@@ -80,34 +80,6 @@ SPINNERS = [
     "pulse"
 ]
 
-BGM_VOLUME = "15"
-WORDS = "abcdefghijklmnopqrstuvwxyz"
-WAIT_FOR_BGM = 15
-
-ALARM_FILE = "audio/alarm.mp3"
-BGM_FILE = "bgm.txt"
-PASS_LENGTH = 5
-SCRIPT_FILE = "script.json"
-VOICE_DIR = "reading"
-STATION_FILE = "stream.wav"
-
-VOICEVOX_TAR = "voicevox.tar.gz"
-VOICEVOX_ZIP = "voicevox.zip"
-VOICEVOX_RUN = "VOICEVOX/vv-engine/run"
-VOICEVOX_WINDOWS_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-windows-directml-0.25.1.zip"
-VOICEVOX_LINUX_URL = "https://github.com/VOICEVOX/voicevox/releases/download/0.25.1/voicevox-linux-cpu-x64-0.25.1.tar.gz"
-AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
-SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
-
-LOG_DIR = "log"
-GEMINI_LOG_FILE = "log/gemini.log"
-VOICEVOX_LOG_FILE = "log/voicevox.log"
-
-is_windows = platform.system() == "Windows"
-
-if is_windows:
-    VOICEVOX_RUN += ".exe"
-
 class BGM:
     def __init__(self, url: str):
         self.ytdlp = subprocess.Popen(
@@ -117,7 +89,7 @@ class BGM:
             stderr=subprocess.DEVNULL
         )
         self.ffplay = subprocess.Popen(
-            ["ffplay", "-nodisp", "-vn", "-loop", "0", "-volume", BGM_VOLUME, "-loglevel", "quiet", "-i", "-"],
+            BGM_PLAYER,
             stdin=self.ytdlp.stdout,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
@@ -173,17 +145,12 @@ def ready_voicevox(log):
 
 def install_voicevox():
     print("downloading voicevox ...")
-    if is_windows:
-        download_with_progress(VOICEVOX_WINDOWS_URL, VOICEVOX_ZIP)
-        print("\nextracting ...")
-        with zipfile.ZipFile(VOICEVOX_ZIP, "r") as z:
-            z.extractall(".")
-    else:
-        download_with_progress(VOICEVOX_LINUX_URL, VOICEVOX_TAR)
-        print("\nextracting ...")
-        with tarfile.open(VOICEVOX_TAR, "r:gz") as tar:
-            tar.extractall(".")
-    print("\033[33mdone\033[0m.")
+    download_with_progress(VOICEVOX_ENGINE_URL, VOICEVOX_7Z)
+    print("\nextracting ...")
+    with py7zr.SevenZipFile(VOICEVOX_7Z, mode="r") as z:
+        z.extractall(path=".")
+        os.rename(z.getnames()[0], DEFAULT_VOICEVOX_ENGINE)
+    print("________\033[33mdone\033[0m________.")
 
 def prepare(wait: int, debug=False):
     time.sleep(wait)
@@ -206,6 +173,7 @@ def prepare(wait: int, debug=False):
                         shell=is_windows
                     )
                 finally:
+                    fg.flush()
                     fg.write("\n________end.________\n\n")
             with open(SCRIPT_FILE, "r", encoding="utf-8") as f:
                 script = json.load(f)
@@ -231,9 +199,10 @@ def prepare(wait: int, debug=False):
                     result += AudioSegment.silent(duration=2000)
                 else:
                     result += AudioSegment.silent(duration=random.randint(300, 700))
-            result.export(STATION_FILE, format="wav")
+            result.export(RADIO_FILE, format="wav")
         finally:
             p.terminate()
+            fv.flush()
             fv.write("\n________closed.________\n\n")
             print("made a new program.")
 
@@ -254,7 +223,7 @@ def make_words() -> str:
 def morning():
     pass_ = make_words()
     p = subprocess.Popen(
-        ["ffplay", "-nodisp", "-vn", "-loop", "0", "-i", ALARM_FILE],
+        ALARM_PLAYER,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
@@ -285,7 +254,7 @@ def start_station():
     with BGM(get_bgm()):
         time.sleep(WAIT_FOR_BGM)
         subprocess.run(
-            ["ffplay", "-nodisp", "-vn", "-autoexit", "-loglevel", "info", "-i", STATION_FILE]
+            RADIO_PLAYER
         )
 
 def main():
