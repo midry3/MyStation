@@ -19,7 +19,7 @@ def get_voicevox_engine_url(version="0.25.1") -> str | None:
             asset = f"voicevox_engine-macos-x64-{version}.7z.001"
     elif system == "linux":
         if "arm64" in machine or "aarch64" in machine:
-            asset = f"voicevox_engine-linux-arm64-{version}.7z.001"
+            asset = f"voicevox_engine-linux-cpu-arm64-{version}.7z.001"
         else:
             asset = f"voicevox_engine-linux-cpu-x64-{version}.7z.001"
     else:
