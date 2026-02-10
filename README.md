@@ -9,12 +9,16 @@ Macは持っておらず動作確認が出来ないため対応してません�
 
 # 必要な物
 - Node.js
+- gemini-cli
 - Python 3.13>=
 - ffmpeg, ffplay
 - Git (なければzipをダウンロードしてください)
 - yt-dlp (BGM用、要らなければ不要)
+- uv (あれば楽)
 
 それぞれ各自で調べてインストールしてください。
+
+手元での検証では、`npx`からの`gemini-cli`は不可です。
 
 # 導入
 ```bash
@@ -25,7 +29,7 @@ $ pip install .
 
 また、もし`gemini-cli`をこれまで使用したことがなければ、以下のコマンドを実行しGoogleアカウントにログインしておいてください。一度ログインすれば以降は不要です。
 ```bash
-$ npx @google/gemini-cli
+$ gemini
 ```
 
 # 使い方
@@ -35,6 +39,9 @@ $ python main.py 7 10
 
 # アラームなしでラジオだけ
 $ python main.py
+
+# uv
+$ uv run main.py
 ```
 
 初回は`VOICEVOX`のダウンロードが始まります。また、ラジオの作成には10分程度時間を要します。アラーム付きの場合はアラームの20分前からラジオ作成を始めます。

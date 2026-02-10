@@ -1,8 +1,7 @@
 script.json
 urls.json
 *.txt
-*.tar.gz
-*.zip
+*.7z
 *.log
 *.wav
 audio/
