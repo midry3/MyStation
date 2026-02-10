@@ -30,7 +30,7 @@ def get_voicevox_engine_url(version="0.25.1") -> str | None:
 CONFIG_FILE = "config.json"
 
 if os.path.isfile(CONFIG_FILE):
-    with open(CONFIG_FILE, "r") as f:
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         conf = json.load(f)
 else:
     conf = {}
