@@ -30,10 +30,12 @@ def get_voicevox_engine_url(version="0.25.1") -> str | None:
 CONFIG_FILE = "config.json"
 
 if os.path.isfile(CONFIG_FILE):
-    with open(CONFIG_FILE, "r") as f:
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         conf = json.load(f)
 else:
     conf = {}
+
+AI = shlex.split(conf.get("ai", "npx @google/gemini-cli -y -p 'prompt.mdに従って処理'"))
 
 WORDS = "abcdefghijklmnopqrstuvwxyz"
 BGM_VOLUME = conf.get("bgm_volume", 15)
@@ -58,7 +60,7 @@ AUDIO_ENDPOINT = "http://localhost:50021/audio_query"
 SYNTHESIS_ENDPOINT = "http://localhost:50021/synthesis"
 
 LOG_DIR = "./log"
-GEMINI_LOG_FILE = "./log/gemini.log"
+AI_LOG_FILE = "./log/ai.log"
 VOICEVOX_LOG_FILE = "./log/voicevox.log"
 
 is_windows = platform.system().lower() == "windows"

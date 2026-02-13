@@ -161,12 +161,12 @@ def prepare(wait: int, debug=False):
         p = ready_voicevox(fv)
         print("start voicevox.")
         try:
-            with open(GEMINI_LOG_FILE, "a") as fg:
+            with open(AI_LOG_FILE, "a") as fg:
                 try:
                     fg.write(f"________{now}________\n")
                     fg.flush()
                     subprocess.run(
-                        ["npx", "@google/gemini-cli", "-y", "-p", "prompt.mdに従って処理を実行"],
+                        AI,
                         stdout=fg,
                         stderr=fg,
                         text=True,
@@ -287,13 +287,18 @@ def main():
         if alarm_time < now:
             alarm_time += datetime.timedelta(days=1)
         prepare_time = alarm_time - datetime.timedelta(minutes=20)
-        time_to_alarm = (alarm_time - now).total_seconds()
         time_to_prepare = (prepare_time - now).total_seconds()
         print(f"Alarm set for {alarm_time.strftime("%H:%M")}.")
         t = Thread(target=prepare, args=(max(0, time_to_prepare),))
         t.start()
-        time.sleep(time_to_alarm)
-        print("Alarm ringing!")
+        while True:
+            time.sleep(1)
+            rest_time = int((alarm_time - datetime.datetime.now()).total_seconds())
+            if rest_time <= 0:
+                break
+            else:
+                print(f"\r\033[KTimer: {rest_time}s", end="")
+        print("\nAlarm ringing!")
         morning()
         start_station()
 
